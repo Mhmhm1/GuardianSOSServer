@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+{% block content %}
+<h3>Devices</h3>
+<div class="mb-3">
+  <button id="show-token" class="btn btn-outline-secondary btn-sm" type="button">Show API Token</button>
+  <span id="api-token" class="ms-2 text-monospace d-none"></span>
+  <button id="copy-token" class="btn btn-sm btn-secondary d-none" type="button">Copy</button>
+</div>
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th>Device ID</th>
+      <th>IMEI</th>
+      <th>Last Seen</th>
+      <th>Location</th>
+      <th>SOS</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for d in devices %}
+    <tr>
+      <td>{{ d.device_id }}</td>
+      <td>{{ d.imei }}</td>
+      <td>{{ d.last_seen or '—' }}</td>
+      <td>{% if d.last_lat and d.last_lng %}{{ '%.5f'|format(d.last_lat) }}, {{ '%.5f'|format(d.last_lng) }}{% else %}—{% endif %}</td>
+      <td>{% if d.last_sos %}<span class="badge bg-danger">ACTIVE</span>{% else %}<span class="badge bg-secondary">Idle</span>{% endif %}</td>
+      <td><a class="btn btn-sm btn-primary" href="{{ url_for('device_detail', device_id=d.device_id) }}">View</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+<script>
+  (function() {
+    const showBtn = document.getElementById('show-token');
+    const copyBtn = document.getElementById('copy-token');
+    const tokenEl = document.getElementById('api-token');
+    if (!showBtn) return;
+    showBtn.addEventListener('click', async () => {
+      try {
+        const res = await fetch('/api_token');
+        if (!res.ok) throw new Error('Failed to load token');
+        const data = await res.json();
+        tokenEl.textContent = data.api_token || '';
+        tokenEl.classList.remove('d-none');
+        copyBtn.classList.remove('d-none');
+      } catch (e) {
+        alert('Could not load API token');
+      }
+    });
+    copyBtn?.addEventListener('click', async () => {
+      const t = tokenEl.textContent.trim();
+      if (!t) return;
+      try {
+        await navigator.clipboard.writeText(t);
+        copyBtn.textContent = 'Copied';
+        setTimeout(() => copyBtn.textContent = 'Copy', 1500);
+      } catch {
+        alert('Copy failed');
+      }
+    });
+  })();
+  </script>
+{% endblock %}

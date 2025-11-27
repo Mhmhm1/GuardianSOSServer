@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-6">
+    <h3>Create account or login to link this device</h3>
+    {% if device_id %}
+      <div class="alert alert-info">Linking device ID: <strong>{{ device_id }}</strong></div>
+    {% else %}
+      <div class="alert alert-warning">No device_id provided. You can still create an account and link later.</div>
+    {% endif %}
+    <ul class="nav nav-tabs" id="regTabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="signup-tab" data-bs-toggle="tab" data-bs-target="#signup" type="button" role="tab">Sign up</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="login-tab" data-bs-toggle="tab" data-bs-target="#login" type="button" role="tab">Log in</button>
+      </li>
+    </ul>
+    <div class="tab-content p-3 border border-top-0">
+      <div class="tab-pane fade show active" id="signup" role="tabpanel">
+        <form method="post">
+          <input type="hidden" name="action" value="signup" />
+          <input type="hidden" name="device_id" value="{{ device_id or '' }}" />
+          <div class="mb-3">
+            <label class="form-label">Username</label>
+            <input class="form-control" type="text" name="username" required />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Password</label>
+            <input class="form-control" type="password" name="password" required />
+          </div>
+          <button class="btn btn-success" type="submit">Create account & link</button>
+        </form>
+      </div>
+      <div class="tab-pane fade" id="login" role="tabpanel">
+        <form method="post">
+          <input type="hidden" name="action" value="login" />
+          <input type="hidden" name="device_id" value="{{ device_id or '' }}" />
+          <div class="mb-3">
+            <label class="form-label">Username</label>
+            <input class="form-control" type="text" name="username" required />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Password</label>
+            <input class="form-control" type="password" name="password" required />
+          </div>
+          <button class="btn btn-primary" type="submit">Login & link</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

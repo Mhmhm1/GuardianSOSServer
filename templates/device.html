@@ -1,0 +1,180 @@
+{% extends 'base.html' %}
+{% block content %}
+<h3>Device: {{ device.device_id }}</h3>
+<ul class="nav nav-tabs mt-3" id="deviceTab" role="tablist">
+  <li class="nav-item" role="presentation">
+    <button class="nav-link active" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview" type="button" role="tab" aria-controls="overview" aria-selected="true">Overview</button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="photos-tab" data-bs-toggle="tab" data-bs-target="#photos" type="button" role="tab" aria-controls="photos" aria-selected="false">Photos</button>
+  </li>
+</ul>
+<div class="tab-content pt-3" id="deviceTabContent">
+  <div class="tab-pane fade show active" id="overview" role="tabpanel" aria-labelledby="overview-tab">
+    <div class="row mb-3">
+      <div class="col-md-8">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <h5 class="mb-0">Location</h5>
+          <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#map-collapse" aria-expanded="true" aria-controls="map-collapse">Toggle map</button>
+        </div>
+        <div id="map-collapse" class="collapse show">
+          <div id="map"></div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card mb-3">
+          <div class="card-body">
+            <div><strong>IMEI:</strong> {{ device.imei }}</div>
+            <div><strong>Last seen:</strong> {{ device.last_seen or '—' }} <span id="place-name" class="text-muted"></span></div>
+            <div><strong>Location:</strong>
+              {% if device.last_lat and device.last_lng %}
+                <span id="coords-text">{{ '%.5f'|format(device.last_lat) }}, {{ '%.5f'|format(device.last_lng) }}</span>
+                (±{{ device.last_acc or 0 }}m)
+                <a class="btn btn-link btn-sm p-0 ms-1" id="open-maps" href="https://www.google.com/maps?q={{ device.last_lat }},{{ device.last_lng }}" target="_blank">Open in Maps</a>
+              {% else %}—{% endif %}
+            </div>
+            <div><strong>SOS:</strong>
+              {% if device.last_sos %}<span class="badge bg-danger">ACTIVE</span>{% else %}<span class="badge bg-secondary">Idle</span>{% endif %}
+            </div>
+            <hr />
+            <p class="mb-1"><strong>Setup</strong></p>
+            <button class="btn btn-sm btn-outline-secondary mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#setup-collapse" aria-expanded="false" aria-controls="setup-collapse">Show setup details</button>
+            <div id="setup-collapse" class="collapse">
+              <div class="d-flex align-items-center gap-2 mt-2">
+                <button id="show-token" class="btn btn-outline-secondary btn-sm" type="button">Show API Token</button>
+                <span id="api-token" class="ms-2 text-monospace d-none"></span>
+                <button id="copy-token" class="btn btn-sm btn-secondary d-none" type="button">Copy</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <form class="d-flex gap-2" method="post" action="{{ url_for('dashboard_flag_cancel') }}" onsubmit="return confirm('Flag cancel on server?');">
+          <input type="hidden" name="device_id" value="{{ device.device_id }}" />
+          <button class="btn btn-warning" type="submit">Flag Cancel</button>
+        </form>
+      </div>
+    </div>
+
+    <h4 class="mt-4">Recent Heartbeats</h4>
+    <table class="table table-sm table-hover">
+      <thead><tr><th>Time</th><th>Lat</th><th>Lng</th><th>Acc (m)</th><th>SOS</th></tr></thead>
+      <tbody>
+        {% for h in heartbeats %}
+        <tr class="hb-row {% if loop.index > 10 %}d-none extra-hb{% endif %}">
+          <td>{{ h.timestamp }}</td>
+          <td>{{ '%.5f'|format(h.lat or 0) }}</td>
+          <td>{{ '%.5f'|format(h.lng or 0) }}</td>
+          <td>{{ h.acc or 0 }}</td>
+          <td>{% if h.sos %}<span class="badge bg-danger">Yes</span>{% else %}No{% endif %}</td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="5"><div class="text-muted">No heartbeats yet. Waiting for device…</div></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% if heartbeats|length > 10 %}
+    <button id="toggle-hb" class="btn btn-sm btn-outline-secondary mb-3" type="button">Show all heartbeats</button>
+    {% endif %}
+  </div>
+  <div class="tab-pane fade" id="photos" role="tabpanel" aria-labelledby="photos-tab">
+    <h4 class="mt-2">Photos</h4>
+    <div class="row mt-2">
+      {% for p in photos %}
+      <div class="col-md-3 mb-3">
+        <div class="card h-100">
+          <div class="card-body p-2 text-center">
+            <div class="small text-muted">{{ p.created_at }}</div>
+            <div class="mb-1">Camera: {{ p.camera }}</div>
+            <img class="photo img-thumbnail" src="/static/{{ p.path }}" loading="lazy" />
+          </div>
+        </div>
+      </div>
+      {% else %}
+      <div class="col-12">
+        <div class="alert alert-info">No photos yet. Ask the device to send a snapshot.</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<script>
+  const lat = {{ device.last_lat or 'null' }};
+  const lng = {{ device.last_lng or 'null' }};
+  if (lat && lng) {
+    const map = L.map('map').setView([lat, lng], 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+    L.marker([lat, lng]).addTo(map);
+  } else {
+    document.getElementById('map').innerHTML = '<div class="alert alert-info">No location yet.</div>';
+  }
+</script>
+<script>
+  (function() {
+    const showBtn = document.getElementById('show-token');
+    const copyBtn = document.getElementById('copy-token');
+    const tokenEl = document.getElementById('api-token');
+    let fullToken = '';
+    if (!showBtn) return;
+    showBtn.addEventListener('click', async () => {
+      try {
+        const res = await fetch('/api_token');
+        if (!res.ok) throw new Error('Failed to load token');
+        const data = await res.json();
+        fullToken = data.api_token || '';
+        if (fullToken) {
+          const masked = fullToken.length > 8
+            ? fullToken.slice(0, 4) + '…' + fullToken.slice(-4)
+            : fullToken;
+          tokenEl.textContent = masked;
+        }
+        tokenEl.classList.remove('d-none');
+        copyBtn.classList.remove('d-none');
+      } catch (e) {
+        alert('Could not load API token');
+      }
+    });
+    copyBtn?.addEventListener('click', async () => {
+      const t = fullToken.trim();
+      if (!t) return;
+      try {
+        await navigator.clipboard.writeText(t);
+        copyBtn.textContent = 'Copied';
+        setTimeout(() => copyBtn.textContent = 'Copy', 1500);
+      } catch {
+        alert('Copy failed');
+      }
+    });
+  })();
+  </script>
+<script>
+  (function() {
+    function refreshIfVisible() {
+      if (document.visibilityState === 'visible') {
+        location.reload();
+      }
+    }
+    setInterval(refreshIfVisible, 15000);
+  })();
+</script>
+<script>
+  (function() {
+    if (!lat || !lng) return;
+    const placeEl = document.getElementById('place-name');
+    if (!placeEl) return;
+    fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=' + encodeURIComponent(lat) + '&lon=' + encodeURIComponent(lng))
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d && d.display_name) {
+          placeEl.textContent = ' · ' + d.display_name;
+        }
+      })
+      .catch(function() {});
+  })();
+</script>
+{% endblock %}
