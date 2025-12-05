@@ -239,6 +239,20 @@ def cancel_sos():
 def api_token_view():
     return jsonify({ 'api_token': API_TOKEN })
 
+# Temporary debug endpoint to echo request headers and show what the server receives.
+@app.route('/debug_headers', methods=['GET', 'POST'])
+def debug_headers():
+    try:
+        hdrs = {k: v for k, v in request.headers.items()}
+    except Exception:
+        hdrs = {}
+    # Log a truncated view for quick inspection
+    try:
+        app.logger.info(f"Debug headers received: {list(hdrs.items())[:10]}")
+    except Exception:
+        pass
+    return jsonify({'headers': hdrs})
+
 # Auth & dashboard
 @app.route('/login', methods=['GET', 'POST'])
 def login():
