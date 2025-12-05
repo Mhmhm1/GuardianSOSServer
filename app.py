@@ -105,21 +105,28 @@ def require_token(f):
         # allow token in query string ?api_token=...
         if not alt_token:
             alt_token = request.args.get('api_token')
-        # allow token in JSON body or form field 'api_token'
+        # allow token in JSON body
         if not alt_token:
             try:
                 data = request.get_json(silent=True) or {}
-                alt_token = data.get('api_token') if isinstance(data, dict) else None
+                if isinstance(data, dict):
+                    alt_token = data.get('api_token')
             except Exception:
                 alt_token = None
+        # allow token in form field 'api_token'
         if not alt_token:
-            alt_token = request.form.get('api_token') if request.form else None
-    parts = auth.split() if auth else []
+            try:
+                alt_token = request.form.get('api_token') if request.form else None
+            except Exception:
+                alt_token = None
+
+        parts = auth.split() if auth else []
         # Log header (truncated) for debugging
         try:
             app.logger.debug(f"Authorization header: {auth[:200]}")
         except Exception:
             pass
+
         # First, allow the mobile app which sends a Bearer token
         token = None
         if len(parts) == 2 and parts[0].lower() == 'bearer':
@@ -127,6 +134,8 @@ def require_token(f):
         # fallback to alternate token locations
         if not token and alt_token:
             token = alt_token
+
+        if token:
             try:
                 app.logger.debug(f"Received token (truncated): {token[:48]}")
             except Exception:
@@ -134,6 +143,7 @@ def require_token(f):
             if token in ALLOWED_API_TOKENS:
                 app.logger.info('Auth: bearer token accepted')
                 return f(*args, **kwargs)
+
         # Fallback: allow a logged-in web session (Flask-Login) so the dashboard
         # can call the same endpoints without requiring changes on the app side.
         # This keeps mobile behavior unchanged and permits browser requests
@@ -144,9 +154,11 @@ def require_token(f):
             except Exception:
                 app.logger.info("Auth: session accepted")
             return f(*args, **kwargs)
+
         # Not authenticated by token or session
         app.logger.info('Auth: unauthorized')
         return jsonify({'error': 'Unauthorized'}), 401
+
     return wrapper
 
 # API endpoints
