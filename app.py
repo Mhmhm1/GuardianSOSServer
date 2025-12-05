@@ -30,6 +30,10 @@ login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
 API_TOKEN = os.getenv('API_TOKEN', 'changeme-token')
+# Support a comma-separated list of allowed API tokens via ALLOWED_API_TOKENS env var.
+# This lets you add the mobile app token on the server without changing code.
+raw_allowed = os.getenv('ALLOWED_API_TOKENS', '')
+ALLOWED_API_TOKENS = set([t.strip() for t in ([API_TOKEN] + raw_allowed.split(',')) if t and t.strip()])
 
 # Models
 class User(UserMixin, db.Model):
@@ -98,9 +102,15 @@ def require_token(f):
         except Exception:
             pass
         # First, allow the mobile app which sends a Bearer token
-        if len(parts) == 2 and parts[0].lower() == 'bearer' and parts[1] == API_TOKEN:
-            app.logger.info('Auth: bearer token accepted')
-            return f(*args, **kwargs)
+        if len(parts) == 2 and parts[0].lower() == 'bearer':
+            token = parts[1]
+            try:
+                app.logger.debug(f"Received token (truncated): {token[:48]}")
+            except Exception:
+                pass
+            if token in ALLOWED_API_TOKENS:
+                app.logger.info('Auth: bearer token accepted')
+                return f(*args, **kwargs)
         # Fallback: allow a logged-in web session (Flask-Login) so the dashboard
         # can call the same endpoints without requiring changes on the app side.
         # This keeps mobile behavior unchanged and permits browser requests
