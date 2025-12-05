@@ -92,8 +92,16 @@ def require_token(f):
     def wrapper(*args, **kwargs):
         auth = request.headers.get('Authorization', '')
         parts = auth.split()
+        # First, allow the mobile app which sends a Bearer token
         if len(parts) == 2 and parts[0].lower() == 'bearer' and parts[1] == API_TOKEN:
             return f(*args, **kwargs)
+        # Fallback: allow a logged-in web session (Flask-Login) so the dashboard
+        # can call the same endpoints without requiring changes on the app side.
+        # This keeps mobile behavior unchanged and permits browser requests
+        # authenticated via session cookies.
+        if current_user.is_authenticated:
+            return f(*args, **kwargs)
+        # Not authenticated by token or session
         return jsonify({'error': 'Unauthorized'}), 401
     return wrapper
 
