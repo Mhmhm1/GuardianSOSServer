@@ -94,16 +94,39 @@ with app.app_context():
 def require_token(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
-        auth = request.headers.get('Authorization', '')
-        parts = auth.split()
+        # Try several places for the token: standard Authorization header,
+        # WSGI environ passthroughs, alternate header X-API-Token, query or json/form body.
+        auth = request.headers.get('Authorization') or request.environ.get('HTTP_AUTHORIZATION') or ''
+        alt_token = None
+        # Some proxies strip Authorization; many clients/apps can send X-API-Token instead
+        xapi = request.headers.get('X-API-Token') or request.headers.get('X-Api-Token')
+        if xapi:
+            alt_token = xapi
+        # allow token in query string ?api_token=...
+        if not alt_token:
+            alt_token = request.args.get('api_token')
+        # allow token in JSON body or form field 'api_token'
+        if not alt_token:
+            try:
+                data = request.get_json(silent=True) or {}
+                alt_token = data.get('api_token') if isinstance(data, dict) else None
+            except Exception:
+                alt_token = None
+        if not alt_token:
+            alt_token = request.form.get('api_token') if request.form else None
+    parts = auth.split() if auth else []
         # Log header (truncated) for debugging
         try:
             app.logger.debug(f"Authorization header: {auth[:200]}")
         except Exception:
             pass
         # First, allow the mobile app which sends a Bearer token
+        token = None
         if len(parts) == 2 and parts[0].lower() == 'bearer':
             token = parts[1]
+        # fallback to alternate token locations
+        if not token and alt_token:
+            token = alt_token
             try:
                 app.logger.debug(f"Received token (truncated): {token[:48]}")
             except Exception:
