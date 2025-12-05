@@ -1,7 +1,7 @@
 import os
 import datetime as dt
 from functools import wraps
-from uuid import uuid4
+import uuid
 
 from flask import Flask, request, jsonify, render_template, redirect, url_for, flash, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
@@ -171,8 +171,25 @@ def register_device():
     data = request.get_json(silent=True) or {}
     device_id = data.get('device_id')
     imei = data.get('imei', '')
+    # If no device_id was provided, try to derive one from IMEI (stable),
+    # otherwise generate a new random device_id and return it to the caller.
     if not device_id:
-        return jsonify({'error': 'device_id required'}), 400
+        if imei:
+            try:
+                device_id = uuid.uuid5(uuid.NAMESPACE_DNS, imei).hex
+                app.logger.info(f"Generated device_id from IMEI: {device_id[:8]}...")
+            except Exception:
+                device_id = uuid.uuid4().hex
+                app.logger.info(f"Failed deriving from IMEI; generated new device_id: {device_id[:8]}...")
+        else:
+            # No device_id or imei: generate a new id and return it so client can persist it
+            device_id = uuid.uuid4().hex
+            app.logger.info(f"No device_id/imei provided; generated new device_id: {device_id[:8]}...")
+            d = Device(device_id=device_id, imei=imei)
+            db.session.add(d)
+            db.session.commit()
+            return jsonify({'device_id': device_id}), 201
+
     d = Device.query.filter_by(device_id=device_id).first()
     if not d:
         d = Device(device_id=device_id, imei=imei)
@@ -204,8 +221,18 @@ def dashboard_flag_cancel():
 def update_heartbeat():
     data = request.get_json(silent=True) or {}
     device_id = data.get('device_id')
+    # allow IMEI fallback so older clients that only send IMEI can be supported
     if not device_id:
-        return jsonify({'error': 'device_id required'}), 400
+        imei = data.get('imei') or data.get('device_imei')
+        if imei:
+            try:
+                device_id = uuid.uuid5(uuid.NAMESPACE_DNS, imei).hex
+                app.logger.debug(f"Derived device_id from imei: {device_id[:8]}...")
+            except Exception:
+                device_id = uuid.uuid4().hex
+                app.logger.debug("Generated random device_id for heartbeat")
+        else:
+            return jsonify({'error': 'device_id required'}), 400
     lat = float(data.get('latitude', 0.0))
     lng = float(data.get('longitude', 0.0))
     acc = float(data.get('accuracy', 0.0))
@@ -238,6 +265,15 @@ def upload_snapshot():
     device_id = request.form.get('device_id')
     camera = request.form.get('camera', 'unknown')
     file = request.files.get('image')
+    # allow IMEI fallback for compatibility
+    if not device_id:
+        imei = request.form.get('imei')
+        if imei:
+            try:
+                device_id = uuid.uuid5(uuid.NAMESPACE_DNS, imei).hex
+            except Exception:
+                device_id = uuid.uuid4().hex
+
     if not device_id or not file:
         return jsonify({'error': 'device_id and image required'}), 400
     # Prepare dir
@@ -262,6 +298,14 @@ def upload_snapshot():
 def cancel_sos():
     data = request.get_json(silent=True) or {}
     device_id = data.get('device_id')
+    # fallback to IMEI if provided
+    if not device_id:
+        imei = data.get('imei')
+        if imei:
+            try:
+                device_id = uuid.uuid5(uuid.NAMESPACE_DNS, imei).hex
+            except Exception:
+                device_id = None
     if not device_id:
         return jsonify({'error': 'device_id required'}), 400
     d = Device.query.filter_by(device_id=device_id).first()
