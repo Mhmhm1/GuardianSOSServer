@@ -136,8 +136,11 @@ def require_token(f):
             token = alt_token
 
         if token:
+            # normalize token to avoid hidden whitespace or newline mismatches
+            token = token.strip()
             try:
-                app.logger.debug(f"Received token (truncated): {token[:48]}")
+                app.logger.debug(f"Received token (truncated): {token[:48]!r}")
+                app.logger.debug(f"Token length: {len(token)}")
             except Exception:
                 pass
             if token in ALLOWED_API_TOKENS:
