@@ -195,19 +195,33 @@ def register_device():
             # No device_id or imei: generate a new id and return it so client can persist it
             device_id = uuid.uuid4().hex
             app.logger.info(f"No device_id/imei provided; generated new device_id: {device_id[:8]}...")
+            try:
+                d = Device(device_id=device_id, imei=imei)
+                db.session.add(d)
+                db.session.commit()
+                app.logger.info(f"[register_device] Created Device: {device_id[:8]}...")
+                return jsonify({'device_id': device_id}), 201
+            except Exception as e:
+                db.session.rollback()
+                app.logger.error(f"[register_device] Error creating device: {e}", exc_info=True)
+                return jsonify({'error': 'Failed to register device', 'details': str(e)}), 500
+
+    try:
+        d = Device.query.filter_by(device_id=device_id).first()
+        if not d:
             d = Device(device_id=device_id, imei=imei)
             db.session.add(d)
-            db.session.commit()
-            return jsonify({'device_id': device_id}), 201
-
-    d = Device.query.filter_by(device_id=device_id).first()
-    if not d:
-        d = Device(device_id=device_id, imei=imei)
-        db.session.add(d)
-    else:
-        d.imei = imei or d.imei
-    db.session.commit()
-    return ('', 204)
+            app.logger.info(f"[register_device] Created new Device: {device_id[:8]}...")
+        else:
+            d.imei = imei or d.imei
+            app.logger.info(f"[register_device] Updated existing Device: {device_id[:8]}...")
+        db.session.commit()
+        app.logger.info(f"[register_device] Committed Device to database")
+        return ('', 204)
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"[register_device] Database error: {e}", exc_info=True)
+        return jsonify({'error': 'Database error', 'details': str(e)}), 500
 
 # Dashboard action for cancel (no API token; requires login)
 @app.post('/dashboard/flag_cancel')
@@ -249,25 +263,35 @@ def update_heartbeat():
     ts_ms = int(data.get('timestamp', int(dt.datetime.utcnow().timestamp()*1000)))
     sos = bool(data.get('sos', False))
 
-    hb = Heartbeat(device_id=device_id, lat=lat, lng=lng, acc=acc, sos=sos, timestamp=dt.datetime.fromtimestamp(ts_ms/1000.0))
-    db.session.add(hb)
+    try:
+        app.logger.info(f"[Heartbeat] Received: device={device_id[:8]}... lat={lat} lon={lng} acc={acc} sos={sos}")
+        
+        hb = Heartbeat(device_id=device_id, lat=lat, lng=lng, acc=acc, sos=sos, timestamp=dt.datetime.fromtimestamp(ts_ms/1000.0))
+        db.session.add(hb)
+        app.logger.debug(f"[Heartbeat] Added Heartbeat record to session")
 
-    d = Device.query.filter_by(device_id=device_id).first()
-    if not d:
-        d = Device(device_id=device_id)
-        db.session.add(d)
-    d.last_seen = dt.datetime.utcnow()
-    d.last_lat = lat
-    d.last_lng = lng
-    d.last_acc = acc
-    d.last_sos = sos
-    cancel = d.sos_cancel_requested
-    if cancel and not sos:
-        # reset cancel flag if device reports not in SOS
-        d.sos_cancel_requested = False
+        d = Device.query.filter_by(device_id=device_id).first()
+        if not d:
+            d = Device(device_id=device_id)
+            db.session.add(d)
+            app.logger.info(f"[Heartbeat] Created new Device: {device_id[:8]}...")
+        d.last_seen = dt.datetime.utcnow()
+        d.last_lat = lat
+        d.last_lng = lng
+        d.last_acc = acc
+        d.last_sos = sos
+        cancel = d.sos_cancel_requested
+        if cancel and not sos:
+            # reset cancel flag if device reports not in SOS
+            d.sos_cancel_requested = False
 
-    db.session.commit()
-    return jsonify({'cancel': bool(cancel)})
+        db.session.commit()
+        app.logger.info(f"[Heartbeat] Committed to database. cancel={cancel}")
+        return jsonify({'cancel': bool(cancel)})
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"[Heartbeat] Database error: {e}", exc_info=True)
+        return jsonify({'error': 'Database error', 'details': str(e)}), 500
 
 @app.post('/upload_snapshot')
 @require_token
