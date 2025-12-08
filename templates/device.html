@@ -26,7 +26,13 @@
           <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#map-collapse" aria-expanded="true" aria-controls="map-collapse">Toggle map</button>
         </div>
         <div id="map-collapse" class="collapse show">
-          <div id="map" style="height:420px;border-radius:10px;overflow:hidden"></div>
+          <div id="map-loader" style="height:420px;border-radius:10px;overflow:hidden;background:linear-gradient(90deg,rgba(125,211,252,0.08),rgba(139,92,246,0.08));position:relative;display:flex;align-items:center;justify-content:center">
+            <div style="text-align:center;color:#9ca3af">
+              <div style="font-size:0.9rem;margin-bottom:8px">Loading map…</div>
+              <div style="width:40px;height:40px;border:3px solid rgba(125,211,252,0.2);border-top-color:#7dd3fc;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto"></div>
+            </div>
+          </div>
+          <div id="map" style="height:420px;border-radius:10px;overflow:hidden;display:none"></div>
         </div>
       </div>
       <div class="col-md-4">
@@ -111,12 +117,22 @@
   const lat = {{ device.last_lat or 'null' }};
   const lng = {{ device.last_lng or 'null' }};
   if (lat && lng) {
-    const map = L.map('map').setView([lat, lng], 15);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
-    L.marker([lat, lng]).addTo(map);
+    function initMap() {
+      try {
+        const map = L.map('map').setView([lat, lng], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+        L.marker([lat, lng]).addTo(map);
+        // ensure map renders correctly after CSS/layout
+        setTimeout(() => { try { map.invalidateSize(); } catch (e) {} }, 200);
+      } catch (e) {
+        // If Leaflet isn't loaded yet, try again shortly
+        setTimeout(initMap, 150);
+      }
+    }
+    if (document.readyState === 'complete') initMap(); else window.addEventListener('load', initMap);
   } else {
     document.getElementById('map').innerHTML = '<div class="alert alert-info">No location yet.</div>';
   }
@@ -169,19 +185,44 @@
     setInterval(refreshIfVisible, 15000);
   })();
 </script>
+<style>
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+</style>
 <script>
-  (function() {
-    if (!lat || !lng) return;
-    const placeEl = document.getElementById('place-name');
-    if (!placeEl) return;
-    fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=' + encodeURIComponent(lat) + '&lon=' + encodeURIComponent(lng))
-      .then(function(r) { return r.json(); })
-      .then(function(d) {
-        if (d && d.display_name) {
-          placeEl.textContent = ' · ' + d.display_name;
-        }
-      })
-      .catch(function() {});
-  })();
+  const lat = {{ device.last_lat or 'null' }};
+  const lng = {{ device.last_lng or 'null' }};
+  if (lat && lng) {
+    function initMap() {
+      try {
+        const mapEl = document.getElementById('map');
+        const loaderEl = document.getElementById('map-loader');
+        const map = L.map('map').setView([lat, lng], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+        L.marker([lat, lng]).addTo(map);
+        // Ensure map renders correctly after CSS/layout
+        setTimeout(() => {
+          try {
+            map.invalidateSize();
+            mapEl.style.display = 'block';
+            if (loaderEl) loaderEl.style.display = 'none';
+          } catch (e) {}
+        }, 200);
+      } catch (e) {
+        // If Leaflet isn't loaded yet, try again shortly
+        setTimeout(initMap, 150);
+      }
+    }
+    if (document.readyState === 'complete') initMap(); else window.addEventListener('load', initMap);
+  } else {
+    const loaderEl = document.getElementById('map-loader');
+    const mapEl = document.getElementById('map');
+    if (loaderEl) loaderEl.innerHTML = '<div class="alert alert-info">No location yet.</div>';
+    if (mapEl) mapEl.innerHTML = '';
+  }
 </script>
 {% endblock %}
