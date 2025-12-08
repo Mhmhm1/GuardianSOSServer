@@ -35,6 +35,16 @@ API_TOKEN = os.getenv('API_TOKEN', 'changeme-token')
 raw_allowed = os.getenv('ALLOWED_API_TOKENS', '')
 ALLOWED_API_TOKENS = set([t.strip() for t in ([API_TOKEN] + raw_allowed.split(',')) if t and t.strip()])
 
+# Helper: mask tokens for logging (show last 8 chars only)
+def _masked_token(token_str):
+    """Return a masked version of token: show last 8 chars only."""
+    if not token_str:
+        return "(empty)"
+    return f"****{token_str[-8:] if len(token_str) > 8 else token_str}"
+
+# Log masked allowed tokens at startup for debugging
+app.logger.info(f"[Startup] Allowed API tokens (count={len(ALLOWED_API_TOKENS)}): {[_masked_token(t) for t in list(ALLOWED_API_TOKENS)[:5]]}")
+
 # Models
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
