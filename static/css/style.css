@@ -1,0 +1,47 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap');
+:root{
+  --bg-0: #030417;
+  --bg-1: #071133;
+  --card: rgba(255,255,255,0.04);
+  --glass-border: rgba(255,255,255,0.06);
+  --muted: #9ca3af;
+  --accent: #7dd3fc;
+  --accent-2: #8b5cf6;
+  --danger: linear-gradient(90deg,#ef4444,#b91c1c);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+  margin:0; background: radial-gradient(1200px 600px at 10% 10%, rgba(139,92,246,0.12), transparent 12%),
+    radial-gradient(1000px 400px at 90% 90%, rgba(125,211,252,0.08), transparent 12%),
+    linear-gradient(180deg,var(--bg-0) 0%, var(--bg-1) 100%);
+  color: #e6eef8;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+}
+.app-shell{min-height:100vh;display:flex;flex-direction:column}
+.app-header{backdrop-filter: blur(6px);background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-bottom:1px solid var(--glass-border)}
+.navbar-brand{font-weight:700;letter-spacing:0.6px}
+.navbar{padding:0.6rem 1rem}
+.app-container{width:100%;max-width:1200px;margin:28px auto;padding:18px}
+.glass-card{background:var(--card);border:1px solid var(--glass-border);border-radius:12px;padding:18px;box-shadow:0 10px 30px rgba(2,6,23,0.6)}
+.page-hero{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+.hero-title{font-size:1.35rem;font-weight:700;margin:0}
+.hero-sub{color:var(--muted);font-size:0.95rem}
+.btn-gradient{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#031025;border:none}
+.btn-outline-frost{color:var(--accent);border:1px solid rgba(125,211,252,0.12);background:transparent}
+.table thead th{color:var(--muted);border-bottom:1px solid rgba(255,255,255,0.04)}
+.table tbody td{vertical-align:middle}
+.badge-future{background:linear-gradient(90deg,#06b6d4,#14b8a6);color:#021226}
+.photo{border-radius:8px;max-width:100%;height:auto}
+.small-muted{color:var(--muted);font-size:0.9rem}
+.card-compact{padding:12px;border-radius:10px}
+@media (max-width:767px){
+  .app-container{margin:12px;padding:12px}
+  .page-hero{flex-direction:column;align-items:flex-start}
+}
+
+/* utility tweaks which override bootstrap where needed */
+.text-monospace{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Courier New', monospace}
+.link-muted{color:var(--accent);text-decoration:none}

@@ -1,6 +1,14 @@
 {% extends 'base.html' %}
 {% block content %}
-<h3>Device: {{ device.device_id }}</h3>
+<div class="page-hero">
+  <div>
+    <h3 class="hero-title">Device: {{ device.device_id }}</h3>
+    <div class="hero-sub">IMEI: {{ device.imei or '—' }}</div>
+  </div>
+  <div>
+    <a class="btn btn-gradient btn-sm" href="{{ url_for('dashboard') }}">Back to Devices</a>
+  </div>
+</div>
 <ul class="nav nav-tabs mt-3" id="deviceTab" role="tablist">
   <li class="nav-item" role="presentation">
     <button class="nav-link active" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview" type="button" role="tab" aria-controls="overview" aria-selected="true">Overview</button>
@@ -18,14 +26,13 @@
           <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#map-collapse" aria-expanded="true" aria-controls="map-collapse">Toggle map</button>
         </div>
         <div id="map-collapse" class="collapse show">
-          <div id="map"></div>
+          <div id="map" style="height:420px;border-radius:10px;overflow:hidden"></div>
         </div>
       </div>
       <div class="col-md-4">
-        <div class="card mb-3">
-          <div class="card-body">
-            <div><strong>IMEI:</strong> {{ device.imei }}</div>
-            <div><strong>Last seen:</strong> {{ device.last_seen or '—' }} <span id="place-name" class="text-muted"></span></div>
+        <div class="glass-card mb-3 card-compact">
+          <div>
+            <div><strong>Last seen:</strong> {{ device.last_seen or '—' }} <span id="place-name" class="small-muted"></span></div>
             <div><strong>Location:</strong>
               {% if device.last_lat and device.last_lng %}
                 <span id="coords-text">{{ '%.5f'|format(device.last_lat) }}, {{ '%.5f'|format(device.last_lng) }}</span>
@@ -38,7 +45,7 @@
             </div>
             <hr />
             <p class="mb-1"><strong>Setup</strong></p>
-            <button class="btn btn-sm btn-outline-secondary mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#setup-collapse" aria-expanded="false" aria-controls="setup-collapse">Show setup details</button>
+            <button class="btn btn-sm btn-outline-frost mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#setup-collapse" aria-expanded="false" aria-controls="setup-collapse">Show setup details</button>
             <div id="setup-collapse" class="collapse">
               <div class="d-flex align-items-center gap-2 mt-2">
                 <button id="show-token" class="btn btn-outline-secondary btn-sm" type="button">Show API Token</button>
